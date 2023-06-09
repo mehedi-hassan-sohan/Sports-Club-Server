@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(cors())
  
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6ypoazf.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -28,7 +28,43 @@ async function run() {
     await client.connect(); 
 
     const ClassCollection = client.db("SportsClub").collection("ClassCollection");
-    const instructorCollection = client.db("SportsClub").collection("instructorCollection"); 
+    const studentCollection = client.db("SportsClub").collection("studentCollection");
+    const instructorCollection = client.db("SportsClub").collection("instructorCollection");  
+   
+    app.get('/students',  async (req, res) => {
+      const result = await studentCollection.find().toArray();
+      res.send(result);
+    });
+  
+    app.post('/students', async (req, res) => {
+      const student = req.body;
+      const query = { email: student.email }
+      const existingUser = await studentCollection.findOne(query);
+
+      if (existingUser) {
+        return res.send({ message: 'user already exists' })
+      }
+
+      const result = await studentCollection.insertOne(student);
+      res.send(result);
+    });
+    
+    app.patch('/students/admin/:id', async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: 'admin'
+        },
+      };
+    
+      // Rest of your code
+      const result = await studentCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+    
+    
 
     app.get('/classes', async (req, res) => {
         const result = await ClassCollection.find().toArray();
