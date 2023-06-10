@@ -1,6 +1,7 @@
 const express = require('express')
 const app = express()
 require('dotenv').config()
+const jwt = require('jsonwebtoken');
 
 const cors = require('cors')
 const port = process.env.PROT || 5000 
@@ -8,7 +9,25 @@ const port = process.env.PROT || 5000
 //middleware
 app.use(express.json()); 
 app.use(cors())
- 
+  
+const verifyJWT = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  console.log(req.headers)
+  if (!authorization) {
+    return res.status(401).send({ error: true, message: 'unauthorized access' });
+  }
+  // bearer token
+  const token = authorization.split(' ')[1];
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ error: true, message: 'unauthorized access' })
+    }
+    req.decoded = decoded;
+    console.log('decoded',decoded);
+    next();
+  })
+}
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6ypoazf.mongodb.net/?retryWrites=true&w=majority`;
@@ -29,7 +48,16 @@ async function run() {
 
     const ClassCollection = client.db("SportsClub").collection("ClassCollection");
     const studentCollection = client.db("SportsClub").collection("studentCollection");
-    const instructorCollection = client.db("SportsClub").collection("instructorCollection");  
+    const instructorCollection = client.db("SportsClub").collection("instructorCollection");    
+
+    app.post('/jwt', (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+
+      res.send({ token })
+    })
+  
+
    
     app.get('/students',  async (req, res) => {
       const result = await studentCollection.find().toArray();
@@ -62,7 +90,25 @@ async function run() {
       // Rest of your code
       const result = await studentCollection.updateOne(filter, updateDoc);
       res.send(result);
-    });
+    });  
+
+
+    app.get('/students/admin/:email',verifyJWT,  async (req, res) => {
+      const email = req.params.email; 
+      console.log(email);
+
+      if (req.decoded.email !== email) {
+        res.send({ admin: false }) 
+        return 
+      }
+
+
+      const user = await studentCollection.findOne({email:email});
+    
+      console.log('user',user);
+      const result = { admin: user?.role === 'admin' }
+      res.send(result);
+    })
     
     
 
@@ -70,6 +116,7 @@ async function run() {
         const result = await ClassCollection.find().toArray();
         res.send(result);
       }); 
+       
       app.post('/classes',  async (req, res) => {
         const newItem = req.body;
         const result = await  ClassCollection.insertOne(newItem)
@@ -87,7 +134,9 @@ async function run() {
         const newInstructor = req.body;
         const result = await  instructorCollection.insertOne(newInstructor)
         res.send(result);
-      }) 
+      })  
+
+      
     
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
