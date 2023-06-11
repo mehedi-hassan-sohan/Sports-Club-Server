@@ -136,7 +136,7 @@ async function run() {
       app.patch('/students/instructor/:id', async (req, res) => {
        const id = req.params.id;
        const filter = { _id: new ObjectId(id) };
-      const updateDoc = {
+       const updateDoc = {
         $set: {
           role: 'instructor',
         },
