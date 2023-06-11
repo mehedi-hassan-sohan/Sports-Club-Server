@@ -44,8 +44,8 @@ async function run() {
 
     const ClassCollection = client.db('SportsClub').collection('ClassCollection');
     const studentCollection = client.db('SportsClub').collection('studentCollection');
-    const instructorIDCollection = client.db('SportsClub').collection('instructorIDCollection');
     const instructorCollection = client.db('SportsClub').collection('instructorCollection');
+    const instructorIdCollection = client.db('SportsClub').collection('instructorIDCollection');
 
     app.post('/jwt', (req, res) => {
       const user = req.body;
@@ -79,7 +79,7 @@ async function run() {
           role: 'admin',
         },
       };
-
+      
       const result = await studentCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
@@ -95,6 +95,42 @@ async function run() {
       const user = await studentCollection.findOne({ email: email });
       const result = { admin: user?.role === 'admin' };
       res.send(result);
+    }); 
+
+    app.patch('/students/instructors/:id/approve', async (req, res) => {
+      try {
+        const classId = req.params.id;
+        const updatedClass = await instructorIdCollection.findByIdAndUpdate(classId, { status: 'approved' }, { new: true });
+        res.json(updatedClass);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred while approving the class.' });
+      }
+    });
+    
+    // PATCH /classes/:id/deny
+    app.patch('/students/instructors/:id/deny', async (req, res) => {
+      try {
+        const classId = req.params.id;
+        const updatedClass = await instructorIdCollection.findByIdAndUpdate(classId, { status: 'denied' }, { new: true });
+        res.json(updatedClass);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred while denying the class.' });
+      }
+    });
+    
+    // POST /classes/:id/feedback
+    app.post('/students/instructors/:id/feedback', async (req, res) => {
+      try {
+        const classId = req.params.id;
+        const { feedback } = req.body;
+        const updatedClass = await instructorIdCollection.findByIdAndUpdate(classId, { feedback }, { new: true });
+        res.json(updatedClass);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred while sending feedback.' });
+      }
     });
 
     app.patch('/students/instructor/:id', async (req, res) => {
@@ -121,12 +157,34 @@ async function run() {
       const user = await studentCollection.findOne({ email: email });
       const result = { instructor: user?.role === 'instructor' };
       res.send(result);
-    });
+    }); 
 
+    app.get('/students/instructors',async(req,res)=>{
+      const result = await instructorIdCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.post('/students/instructors', async (req, res) => {
+      const newItem = req.body;
+      const result = await instructorIdCollection.insertOne(newItem);
+      res.send(result);
+    });
+     
+
+    
 
     app.get('/classes', async (req, res) => {
       const result = await ClassCollection.find().toArray();
       res.send(result);
+    });  
+
+    app.get('/classes/:id', async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const result = await ClassCollection.findOne({ _id: new ObjectId(id) });
+      console.log('result',result);
+      res.send(result);
+      
     });
 
     app.post('/classes', async (req, res) => {
@@ -145,7 +203,8 @@ async function run() {
       const result = await instructorCollection.insertOne(newInstructor);
       res.send(result);
     }); 
-
+ 
+    
 
 
     app.post('/create-payment-intent',async (req, res) => {
